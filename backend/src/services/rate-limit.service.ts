@@ -1,182 +1,169 @@
 import redis from "../config/redis.js";
 
+export type RateLimitReason =
+  | "hourly_limit"
+  | "send_spacing";
+
 export interface RateLimitDecision {
   allowed: boolean;
   retryAt?: number;
-  reason?: "hourly_limit" | "send_spacing";
+  reason?: RateLimitReason;
 }
 
 /**
- * Atomically checks and reserves a sender's hourly quota.
+ * Atomically checks BOTH:
  *
- * Redis key:
- * email:hourly:{senderId}:{YYYYMMDDHH}
+ * 1. Hourly sender quota
+ * 2. Minimum delay between sends
+ *
+ * Nothing is reserved unless both constraints pass.
+ *
+ * KEYS[1] = hourly counter
+ * KEYS[2] = last-send timestamp
+ *
+ * ARGV[1] = hourly limit
+ * ARGV[2] = current timestamp (ms)
+ * ARGV[3] = minimum delay (ms)
+ * ARGV[4] = hourly key TTL (seconds)
+ * ARGV[5] = spacing key TTL (ms)
+ *
+ * Returns:
+ *
+ * {1, 0, timestamp}       -> allowed
+ * {0, 1, nextHour, 0}      -> hourly limit reached
+ * {0, 2, 0, nextAllowed}   -> spacing limit reached
  */
-const HOURLY_LIMIT_SCRIPT = `
-local key = KEYS[1]
-local limit = tonumber(ARGV[1])
-local ttl = tonumber(ARGV[2])
+const ACQUIRE_SEND_PERMIT_SCRIPT = `
+local hourlyKey = KEYS[1]
+local spacingKey = KEYS[2]
 
-local current = tonumber(redis.call("GET", key) or "0")
+local hourlyLimit = tonumber(ARGV[1])
+local now = tonumber(ARGV[2])
+local minimumDelay = tonumber(ARGV[3])
+local hourlyTtl = tonumber(ARGV[4])
+local spacingTtl = tonumber(ARGV[5])
 
-if current >= limit then
-    return {0, current}
+local currentCount = tonumber(redis.call("GET", hourlyKey) or "0")
+
+if currentCount >= hourlyLimit then
+    return {0, 1}
 end
 
-local next = redis.call("INCR", key)
+local lastSend = redis.call("GET", spacingKey)
 
-if next == 1 then
-    redis.call("EXPIRE", key, ttl)
+if lastSend then
+    lastSend = tonumber(lastSend)
+
+    local nextAllowedAt = lastSend + minimumDelay
+
+    if now < nextAllowedAt then
+        return {0, 2, nextAllowedAt}
+    end
 end
 
-return {1, next}
-`;
+local newCount = redis.call("INCR", hourlyKey)
 
-/**
- * Atomically checks and reserves the next send slot for a sender.
- *
- * Redis key:
- * email:last-send:{senderId}
- *
- * The operation is atomic, so multiple workers cannot
- * simultaneously reserve the same send slot.
- */
-const SEND_SPACING_SCRIPT = `
-local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local minimumDelay = tonumber(ARGV[2])
-local ttl = tonumber(ARGV[3])
-
-local lastSend = redis.call("GET", key)
-
-if not lastSend then
-    redis.call("SET", key, now, "PX", ttl)
-    return {1, now}
+if newCount == 1 then
+    redis.call("EXPIRE", hourlyKey, hourlyTtl)
 end
 
-lastSend = tonumber(lastSend)
+redis.call("SET", spacingKey, now, "PX", spacingTtl)
 
-local nextAllowedAt = lastSend + minimumDelay
-
-if now >= nextAllowedAt then
-    redis.call("SET", key, now, "PX", ttl)
-    return {1, now}
-end
-
-return {0, nextAllowedAt}
+return {1, 0, now}
 `;
 
 export class RateLimitService {
   /**
-   * Reserves one email slot in the current UTC hour.
+   * Atomically reserves the right to send one email.
    *
-   * This operation is atomic inside Redis and is therefore
-   * safe when multiple worker processes are running.
+   * Both hourly quota and sender spacing must pass.
    */
-  async acquireHourlySlot(
+  async acquireSendPermit(
     senderId: string,
     hourlyLimit: number,
+    minimumDelayMs: number,
     now = new Date(),
   ): Promise<RateLimitDecision> {
     if (hourlyLimit <= 0) {
-      throw new Error("Hourly limit must be greater than zero");
+      throw new Error(
+        "Hourly limit must be greater than zero",
+      );
     }
 
-    const hourKey = this.getHourlyKey(senderId, now);
-
-    // Keep the key for two hours so it is available for
-    // debugging and cannot linger indefinitely.
-    const ttlSeconds = 7_200;
-
-    const result = (await redis.eval(
-      HOURLY_LIMIT_SCRIPT,
-      1,
-      hourKey,
-      String(hourlyLimit),
-      String(ttlSeconds),
-    )) as [number, number];
-
-    const [allowed, currentCount] = result;
-
-    if (allowed === 1) {
-      return {
-        allowed: true,
-      };
-    }
-
-    const nextHour = new Date(now);
-    nextHour.setUTCMinutes(0, 0, 0);
-    nextHour.setUTCHours(nextHour.getUTCHours() + 1);
-
-    return {
-      allowed: false,
-      reason: "hourly_limit",
-      retryAt: nextHour.getTime(),
-    };
-  }
-
-  /**
-   * Reserves the next available send slot for a sender.
-   *
-   * Example:
-   * minimumDelayMs = 2000
-   *
-   * If one worker reserves 12:00:00.000,
-   * another worker cannot reserve until 12:00:02.000.
-   */
-  async acquireSendSpacing(
-    senderId: string,
-    minimumDelayMs: number,
-    now = Date.now(),
-  ): Promise<RateLimitDecision> {
     if (minimumDelayMs < 0) {
       throw new Error(
         "Minimum delay cannot be negative",
       );
     }
 
-    const key = `email:last-send:${senderId}`;
+    const hourlyKey = this.getHourlyKey(
+      senderId,
+      now,
+    );
 
-    // Keep the key alive long enough for the next
-    // possible send attempt.
-    const ttlMs = Math.max(
+    const spacingKey =
+      `email:last-send:${senderId}`;
+
+    const hourlyTtlSeconds = 7_200;
+
+    const spacingTtlMs = Math.max(
       minimumDelayMs * 2,
       60_000,
     );
 
     const result = (await redis.eval(
-      SEND_SPACING_SCRIPT,
-      1,
-      key,
-      String(now),
+      ACQUIRE_SEND_PERMIT_SCRIPT,
+      2,
+      hourlyKey,
+      spacingKey,
+      String(hourlyLimit),
+      String(now.getTime()),
       String(minimumDelayMs),
-      String(ttlMs),
-    )) as [number, number];
+      String(hourlyTtlSeconds),
+      String(spacingTtlMs),
+    )) as number[];
 
-    const [allowed, nextAllowedAt] = result;
+    const resultCode = result[0];
 
-    if (allowed === 1) {
+    if (resultCode === 1) {
       return {
         allowed: true,
       };
     }
 
-    return {
-      allowed: false,
-      reason: "send_spacing",
-      retryAt: nextAllowedAt,
-    };
+    const reasonCode = result[1];
+
+    if (reasonCode === 1) {
+      return {
+        allowed: false,
+        reason: "hourly_limit",
+        retryAt: this.getNextHour(
+          now,
+        ).getTime(),
+      };
+    }
+
+const retryAt = result[2];
+
+if (typeof retryAt !== "number") {
+  throw new Error(
+    "Rate limiter returned an invalid retry timestamp",
+  );
+}
+
+return {
+  allowed: false,
+  reason: "send_spacing",
+  retryAt,
+};
   }
 
-  /**
-   * Generates the Redis key for the sender's UTC
-   * hourly quota window.
-   */
   private getHourlyKey(
     senderId: string,
     date: Date,
   ): string {
-    const year = date.getUTCFullYear();
+    const year =
+      date.getUTCFullYear();
 
     const month = String(
       date.getUTCMonth() + 1,
@@ -191,6 +178,19 @@ export class RateLimitService {
     ).padStart(2, "0");
 
     return `email:hourly:${senderId}:${year}${month}${day}${hour}`;
+  }
+
+  private getNextHour(
+    date: Date,
+  ): Date {
+    const nextHour = new Date(date);
+
+    nextHour.setUTCMinutes(0, 0, 0);
+    nextHour.setUTCHours(
+      nextHour.getUTCHours() + 1,
+    );
+
+    return nextHour;
   }
 }
 

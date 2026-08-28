@@ -12,7 +12,6 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "test:rate-limit": "tsx src/services/test-rate-limit.ts",
     "test:smtp": "tsx src/utils/test-smtp.ts"
   },
   "keywords": [],
