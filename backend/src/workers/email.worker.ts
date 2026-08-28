@@ -1,6 +1,4 @@
 import { Worker } from "bullmq";
-import { randomUUID } from "node:crypto";
-
 import redis from "../config/redis.js";
 import {
   EMAIL_QUEUE_NAME,
@@ -9,26 +7,20 @@ import {
 import emailRepository from "../repositories/email.repository.js";
 import { smtpService } from "../services/smtp.service.js";
 
-const concurrency = Number(
-  process.env.WORKER_CONCURRENCY ?? 5,
-);
+const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 5);
 
 const worker = new Worker<EmailJobPayload>(
   EMAIL_QUEUE_NAME,
   async (job) => {
     const { emailJobId } = job.data;
 
-    const emailJob =
-      await emailRepository.findById(emailJobId);
+    const emailJob = await emailRepository.findById(emailJobId);
 
     if (!emailJob) {
-      throw new Error(
-        `EmailJob ${emailJobId} not found`,
-      );
+      throw new Error(`EmailJob ${emailJobId} not found`);
     }
 
-    // Idempotency guard:
-    // a redelivered/completed job must not send again.
+    // Idempotency guard
     if (emailJob.status === "SENT") {
       return {
         skipped: true,
@@ -42,7 +34,7 @@ const worker = new Worker<EmailJobPayload>(
       emailJob.status !== "QUEUED"
     ) {
       throw new Error(
-        `EmailJob ${emailJobId} is in unexpected state ${emailJob.status}`,
+        `EmailJob ${emailJobId} is in unexpected state ${emailJob.status}`
       );
     }
 
@@ -57,9 +49,7 @@ const worker = new Worker<EmailJobPayload>(
       };
     }
 
-    await emailRepository.incrementAttempts(
-      emailJobId,
-    );
+    await emailRepository.incrementAttempts(emailJobId);
 
     const messageId = `<${emailJobId}@reachinbox.local>`;
 
@@ -77,7 +67,7 @@ const worker = new Worker<EmailJobPayload>(
       await emailRepository.markSent(
         emailJobId,
         new Date(),
-        info.messageId ?? messageId,
+        info.messageId ?? messageId
       );
 
       return {
@@ -91,10 +81,7 @@ const worker = new Worker<EmailJobPayload>(
           ? error.message
           : "Unknown SMTP error";
 
-      await emailRepository.markFailed(
-        emailJobId,
-        reason,
-      );
+      await emailRepository.markFailed(emailJobId, reason);
 
       throw error;
     }
@@ -102,19 +89,17 @@ const worker = new Worker<EmailJobPayload>(
   {
     connection: redis,
     concurrency,
-  },
+  }
 );
 
 worker.on("completed", (job) => {
-  console.log(
-    `Email job ${job.id} completed`,
-  );
+  console.log(`Email job ${job.id} completed`);
 });
 
 worker.on("failed", (job, error) => {
   console.error(
     `Email job ${job?.id ?? "unknown"} failed:`,
-    error,
+    error
   );
 });
 
