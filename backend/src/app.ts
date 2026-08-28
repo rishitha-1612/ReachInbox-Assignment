@@ -2,8 +2,12 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
-
+import emailRoutes from "./routes/email.routes.js";
 const app = express();
+app.use(
+  "/api/v1/emails",
+  emailRoutes,
+);
 
 app.use(helmet());
 app.use(cors());
