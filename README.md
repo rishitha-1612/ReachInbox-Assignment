@@ -1,8 +1,4 @@
-You're right. You want the **entire README from `# ReachInbox` all the way to the final line inside ONE single copy-paste block**, with nothing outside it.
 
-Copy everything below directly into `README.md`:
-
-````markdown
 # ReachInbox — Email Scheduler
 
 A full-stack email scheduling system built with **Next.js, React, TypeScript, Express, PostgreSQL, Redis, and BullMQ**.
@@ -1555,5 +1551,4 @@ Computer Science & Engineering
 
 Bengaluru, India
 
-```
 ```
