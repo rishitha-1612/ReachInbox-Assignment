@@ -1,9 +1,7 @@
 import { prisma } from "../config/prisma.js";
 
 export class SenderRepository {
-  async findDefaultSender(
-    userId: string,
-  ) {
+  async findDefaultSender(userId: string) {
     return prisma.sender.findFirst({
       where: {
         userId,
@@ -24,31 +22,39 @@ export class SenderRepository {
     });
   }
 
-  async createDefaultSender(
-    data: {
-      userId: string;
-      email: string;
-      displayName: string;
-      smtpHost: string;
-      smtpPort: number;
-      smtpUser: string;
-      smtpPassEncrypted: string;
-    },
-  ) {
+  async findForUser(userId: string) {
+    return prisma.sender.findMany({
+      where: {
+        userId,
+      },
+      orderBy: [
+        {
+          isDefault: "desc",
+        },
+        {
+          createdAt: "asc",
+        },
+      ],
+    });
+  }
+
+  async createDefaultSender(data: {
+    userId: string;
+    email: string;
+    displayName: string;
+    smtpHost: string;
+    smtpPort: number;
+    smtpUser: string;
+    smtpPassEncrypted: string;
+  }) {
     return prisma.sender.create({
       data: {
-        userId:
-          data.userId,
-        email:
-          data.email,
-        displayName:
-          data.displayName,
-        smtpHost:
-          data.smtpHost,
-        smtpPort:
-          data.smtpPort,
-        smtpUser:
-          data.smtpUser,
+        userId: data.userId,
+        email: data.email,
+        displayName: data.displayName,
+        smtpHost: data.smtpHost,
+        smtpPort: data.smtpPort,
+        smtpUser: data.smtpUser,
         smtpPassEncrypted:
           data.smtpPassEncrypted,
         isDefault: true,
@@ -56,36 +62,27 @@ export class SenderRepository {
     });
   }
 
-  async create(
-    data: {
-      userId: string;
-      email: string;
-      displayName: string;
-      smtpHost: string;
-      smtpPort: number;
-      smtpUser: string;
-      smtpPassEncrypted: string;
-      isDefault?: boolean;
-    },
-  ) {
+  async create(data: {
+    userId: string;
+    email: string;
+    displayName: string;
+    smtpHost: string;
+    smtpPort: number;
+    smtpUser: string;
+    smtpPassEncrypted: string;
+    isDefault?: boolean;
+  }) {
     return prisma.sender.create({
       data: {
-        userId:
-          data.userId,
-        email:
-          data.email,
-        displayName:
-          data.displayName,
-        smtpHost:
-          data.smtpHost,
-        smtpPort:
-          data.smtpPort,
-        smtpUser:
-          data.smtpUser,
+        userId: data.userId,
+        email: data.email,
+        displayName: data.displayName,
+        smtpHost: data.smtpHost,
+        smtpPort: data.smtpPort,
+        smtpUser: data.smtpUser,
         smtpPassEncrypted:
           data.smtpPassEncrypted,
-        ...(data.isDefault !==
-        undefined
+        ...(data.isDefault !== undefined
           ? {
               isDefault:
                 data.isDefault,

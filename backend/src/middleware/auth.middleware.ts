@@ -21,6 +21,11 @@ export async function authMiddleware(
     const token =
       req.cookies?.[SESSION_COOKIE];
 
+    console.log(
+      "Auth cookie present:",
+      Boolean(token),
+    );
+
     if (!token) {
       return res.status(401).json({
         success: false,
@@ -32,18 +37,33 @@ export async function authMiddleware(
     const user =
       await verifySession(token);
 
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "User not found",
+      });
+    }
+
     req.user = {
       id: user.id,
       googleId: user.googleId,
       email: user.email,
       name: user.name,
       ...(user.avatar
-        ? { avatar: user.avatar }
+        ? {
+            avatar: user.avatar,
+          }
         : {}),
     };
 
     return next();
-  } catch {
+  } catch (error) {
+    console.error(
+      "Authentication error:",
+      error,
+    );
+
     return res.status(401).json({
       success: false,
       message:

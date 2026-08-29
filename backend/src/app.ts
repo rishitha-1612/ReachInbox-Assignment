@@ -4,11 +4,12 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { pinoHttp } from "pino-http";
 
+import dashboardRoutes from "./routes/dashboard.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import emailRoutes from "./routes/email.routes.js";
+import senderRoutes from "./routes/sender.routes.js";
 
-const app =
-  express();
+const app = express();
 
 app.use(
   helmet(),
@@ -26,8 +27,7 @@ app.use(
 app.use(
   pinoHttp({
     transport: {
-      target:
-        "pino-pretty",
+      target: "pino-pretty",
     },
   }),
 );
@@ -53,6 +53,10 @@ app.get(
   },
 );
 
+/*
+ * Routes MUST come after cookieParser()
+ * because authenticated routes need req.cookies.
+ */
 app.use(
   "/api/v1/auth",
   authRoutes,
@@ -61,6 +65,16 @@ app.use(
 app.use(
   "/api/v1/emails",
   emailRoutes,
+);
+
+app.use(
+  "/api/v1/senders",
+  senderRoutes,
+);
+
+app.use(
+  "/api/v1/dashboard",
+  dashboardRoutes,
 );
 
 export default app;

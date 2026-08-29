@@ -1,6 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
 import { jwtVerify, SignJWT } from "jose";
-
+import { encryptSecret } from "../utils/crypto.js";
 import userRepository from "../repositories/user.repository.js";
 import senderRepository from "../repositories/sender.repository.js";
 
@@ -173,7 +173,8 @@ export async function handleGoogleCallback(
       smtpHost,
       smtpPort,
       smtpUser,
-      smtpPassEncrypted: smtpPass,
+      smtpPassEncrypted:
+        encryptSecret(smtpPass),
     });
   }
 

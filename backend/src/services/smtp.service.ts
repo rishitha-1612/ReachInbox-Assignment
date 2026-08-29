@@ -3,6 +3,10 @@ import nodemailer, {
   type Transporter,
 } from "nodemailer";
 
+import {
+  decryptSecret,
+} from "../utils/crypto.js";
+
 export interface SendEmailInput {
   to: string;
   subject: string;
@@ -11,40 +15,84 @@ export interface SendEmailInput {
   messageId: string;
 }
 
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  user: string;
+  encryptedPassword: string;
+}
+
 export class SmtpService {
-  private readonly transporter: Transporter;
-
-  constructor() {
-    const host = process.env.SMTP_HOST;
-    const port = Number(process.env.SMTP_PORT ?? 587);
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-
-    if (!host || !user || !pass) {
-      throw new Error(
-        "SMTP configuration is incomplete",
+  private createTransport(
+    config: SmtpConfig,
+  ): Transporter {
+    const password =
+      decryptSecret(
+        config.encryptedPassword,
       );
-    }
 
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
+    return nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.port === 465,
       auth: {
-        user,
-        pass,
+        user: config.user,
+        pass: password,
       },
     });
   }
 
-  async verify(): Promise<void> {
-    await this.transporter.verify();
+  async verify(
+    config?: SmtpConfig,
+  ): Promise<void> {
+    if (!config) {
+      const host =
+        process.env.SMTP_HOST;
+
+      const user =
+        process.env.SMTP_USER;
+
+      const pass =
+        process.env.SMTP_PASS;
+
+      const port = Number(
+        process.env.SMTP_PORT ?? 587,
+      );
+
+      if (!host || !user || !pass) {
+        throw new Error(
+          "SMTP configuration is incomplete",
+        );
+      }
+
+      const transporter =
+        nodemailer.createTransport({
+          host,
+          port,
+          secure: port === 465,
+          auth: {
+            user,
+            pass,
+          },
+        });
+
+      await transporter.verify();
+      return;
+    }
+
+    await this
+      .createTransport(config)
+      .verify();
   }
 
   async send(
+    config: SmtpConfig,
     input: SendEmailInput,
   ): Promise<SentMessageInfo> {
-    return this.transporter.sendMail({
+    const transporter =
+      this.createTransport(config);
+
+    return transporter.sendMail({
       from: input.from,
       to: input.to,
       subject: input.subject,
@@ -54,4 +102,5 @@ export class SmtpService {
   }
 }
 
-export const smtpService = new SmtpService();
+export const smtpService =
+  new SmtpService();
