@@ -1,8 +1,14 @@
-import { EmailStatus, Prisma } from "@prisma/client";
+import {
+  EmailStatus,
+  Prisma,
+} from "@prisma/client";
+
 import { prisma } from "../config/prisma.js";
 
 export class EmailRepository {
-  async createMany(data: Prisma.EmailJobCreateManyInput[]) {
+  async createMany(
+    data: Prisma.EmailJobCreateManyInput[],
+  ) {
     return prisma.emailJob.createMany({
       data,
     });
@@ -17,7 +23,21 @@ export class EmailRepository {
     });
   }
 
-  async markQueued(id: string, bullJobId: string) {
+  async findByBatchId(batchId: string) {
+    return prisma.emailJob.findMany({
+      where: {
+        batchId,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+  }
+
+  async markQueued(
+    id: string,
+    bullJobId: string,
+  ) {
     return prisma.emailJob.updateMany({
       where: {
         id,
@@ -35,7 +55,10 @@ export class EmailRepository {
       where: {
         id,
         status: {
-          in: [EmailStatus.PENDING, EmailStatus.QUEUED],
+          in: [
+            EmailStatus.PENDING,
+            EmailStatus.QUEUED,
+          ],
         },
       },
       data: {
@@ -44,7 +67,9 @@ export class EmailRepository {
     });
   }
 
-  async markQueuedFromProcessing(id: string) {
+  async markQueuedFromProcessing(
+    id: string,
+  ) {
     return prisma.emailJob.updateMany({
       where: {
         id,
@@ -58,9 +83,7 @@ export class EmailRepository {
 
   async incrementAttempts(id: string) {
     return prisma.emailJob.update({
-      where: {
-        id,
-      },
+      where: { id },
       data: {
         attempts: {
           increment: 1,
@@ -69,7 +92,11 @@ export class EmailRepository {
     });
   }
 
-  async markSent(id: string, sentAt: Date, messageId: string) {
+  async markSent(
+    id: string,
+    sentAt: Date,
+    messageId: string,
+  ) {
     return prisma.emailJob.updateMany({
       where: {
         id,
@@ -84,7 +111,10 @@ export class EmailRepository {
     });
   }
 
-  async markFailed(id: string, failureReason: string) {
+  async markFailed(
+    id: string,
+    failureReason: string,
+  ) {
     return prisma.emailJob.updateMany({
       where: {
         id,
@@ -102,12 +132,20 @@ export class EmailRepository {
       where: {
         userId,
         status: {
-          in: [EmailStatus.PENDING, EmailStatus.QUEUED],
+          in: [
+            EmailStatus.PENDING,
+            EmailStatus.QUEUED,
+            EmailStatus.PROCESSING,
+          ],
         },
       },
       orderBy: [
-        { scheduledFor: "asc" },
-        { createdAt: "asc" },
+        {
+          scheduledFor: "asc",
+        },
+        {
+          createdAt: "asc",
+        },
       ],
     });
   }
@@ -124,40 +162,22 @@ export class EmailRepository {
     });
   }
 
-  async findJobsForReconciliation(limit = 100) {
+  async findJobsForReconciliation(
+    limit = 100,
+  ) {
     return prisma.emailJob.findMany({
       where: {
         status: {
-          in: [EmailStatus.PENDING, EmailStatus.QUEUED],
+          in: [
+            EmailStatus.PENDING,
+            EmailStatus.QUEUED,
+          ],
         },
       },
       orderBy: {
         scheduledFor: "asc",
       },
       take: limit,
-    });
-  }
-
-  async findPendingJobs(limit = 100) {
-    return prisma.emailJob.findMany({
-      where: {
-        status: EmailStatus.PENDING,
-      },
-      orderBy: {
-        scheduledFor: "asc",
-      },
-      take: limit,
-    });
-  }
-
-  async findByBatchId(batchId: string) {
-    return prisma.emailJob.findMany({
-      where: {
-        batchId,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
     });
   }
 }
