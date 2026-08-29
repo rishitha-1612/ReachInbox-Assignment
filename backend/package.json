@@ -12,7 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "test:smtp": "tsx src/utils/test-smtp.ts"
+    "test:smtp": "tsx src/utils/test-smtp.ts",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -57,6 +58,7 @@
     "prettier": "^3.9.6",
     "prisma": "^6.19.3",
     "tsx": "^4.23.12",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

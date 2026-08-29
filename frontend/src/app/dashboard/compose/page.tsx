@@ -9,10 +9,12 @@ import {
 } from "react";
 
 import { DashboardShell } from "@/components/layout/DashboardShell";
+
 import {
   scheduleEmails,
   type ScheduleEmailsRequest,
 } from "@/services/email.service";
+
 import {
   getSenders,
   type Sender,
@@ -44,12 +46,11 @@ function parseRecipients(
   const seen = new Set<string>();
 
   for (const email of entries) {
-    const validFormat =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
         email,
-      );
-
-    if (!validFormat) {
+      )
+    ) {
       invalid.push(email);
       continue;
     }
@@ -70,6 +71,21 @@ function parseRecipients(
   };
 }
 
+function getDefaultScheduleValue(): string {
+  const date = new Date(
+    Date.now() + 5 * 60 * 1000,
+  );
+
+  const pad = (value: number) =>
+    String(value).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(
+    date.getMonth() + 1,
+  )}-${pad(date.getDate())}T${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
+}
+
 export default function ComposePage() {
   const [senders, setSenders] =
     useState<Sender[]>([]);
@@ -77,7 +93,7 @@ export default function ComposePage() {
   const [senderId, setSenderId] =
     useState("");
 
-  const [recipientText, setRecipientText] =
+  const [recipientsText, setRecipientsText] =
     useState("");
 
   const [subject, setSubject] =
@@ -87,7 +103,7 @@ export default function ComposePage() {
     useState("");
 
   const [scheduledFor, setScheduledFor] =
-    useState("");
+    useState(getDefaultScheduleValue());
 
   const [
     delayBetweenEmailsMs,
@@ -104,16 +120,19 @@ export default function ComposePage() {
     useState(false);
 
   const [message, setMessage] =
-    useState<string | null>(null);
+    useState("");
 
   const [messageType, setMessageType] =
-    useState<"success" | "error" | null>(
-      null,
-    );
+    useState<
+      "success" | "error" | ""
+    >("");
 
   const parsed = useMemo(
-    () => parseRecipients(recipientText),
-    [recipientText],
+    () =>
+      parseRecipients(
+        recipientsText,
+      ),
+    [recipientsText],
   );
 
   useEffect(() => {
@@ -149,7 +168,7 @@ export default function ComposePage() {
 
         if (!cancelled) {
           setMessage(
-            "Unable to load your sender accounts.",
+            "Unable to load sender accounts. Please log in again.",
           );
           setMessageType("error");
         }
@@ -183,7 +202,7 @@ export default function ComposePage() {
         .endsWith(".csv")
     ) {
       setMessage(
-        "Please upload a CSV file.",
+        "Please select a CSV file.",
       );
       setMessageType("error");
       return;
@@ -193,39 +212,25 @@ export default function ComposePage() {
       const text =
         await file.text();
 
-      setRecipientText(text);
+      setRecipientsText(text);
+
       setMessage(
-        `Loaded ${file.name}`,
+        `${file.name} loaded successfully.`,
       );
+
       setMessageType("success");
     } catch (error) {
       console.error(
-        "Failed to read CSV:",
+        "CSV read error:",
         error,
       );
 
       setMessage(
         "Unable to read the CSV file.",
       );
+
       setMessageType("error");
     }
-  }
-
-  function getScheduleDate(): Date | null {
-    if (!scheduledFor) {
-      return null;
-    }
-
-    const date =
-      new Date(scheduledFor);
-
-    if (
-      Number.isNaN(date.getTime())
-    ) {
-      return null;
-    }
-
-    return date;
   }
 
   async function handleSubmit(
@@ -233,8 +238,8 @@ export default function ComposePage() {
   ) {
     event.preventDefault();
 
-    setMessage(null);
-    setMessageType(null);
+    setMessage("");
+    setMessageType("");
 
     if (!senderId) {
       setMessage(
@@ -246,7 +251,7 @@ export default function ComposePage() {
 
     if (parsed.valid.length === 0) {
       setMessage(
-        "Add at least one valid recipient.",
+        "Please add at least one valid recipient.",
       );
       setMessageType("error");
       return;
@@ -268,12 +273,24 @@ export default function ComposePage() {
       return;
     }
 
-    const scheduleDate =
-      getScheduleDate();
-
-    if (!scheduleDate) {
+    if (!scheduledFor) {
       setMessage(
-        "Choose a valid schedule time.",
+        "Please select a schedule time.",
+      );
+      setMessageType("error");
+      return;
+    }
+
+    const scheduleDate =
+      new Date(scheduledFor);
+
+    if (
+      Number.isNaN(
+        scheduleDate.getTime(),
+      )
+    ) {
+      setMessage(
+        "Invalid schedule time.",
       );
       setMessageType("error");
       return;
@@ -340,9 +357,12 @@ export default function ComposePage() {
 
       setMessageType("success");
 
-      setRecipientText("");
+      setRecipientsText("");
       setSubject("");
       setBody("");
+      setScheduledFor(
+        getDefaultScheduleValue(),
+      );
     } catch (error) {
       console.error(
         "Schedule request failed:",
@@ -350,7 +370,7 @@ export default function ComposePage() {
       );
 
       setMessage(
-        "Failed to schedule emails. Please check your login and make sure the backend is running.",
+        "Unable to schedule emails. Please check your login and make sure the backend is running.",
       );
 
       setMessageType("error");
@@ -389,9 +409,15 @@ export default function ComposePage() {
           className="space-y-6"
         >
           <section className="rounded-xl border p-6">
-            <h3 className="mb-4 text-lg font-medium">
-              Sender
-            </h3>
+            <div className="mb-4">
+              <h3 className="text-lg font-medium">
+                Sender
+              </h3>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Select the email account that will send the campaign.
+              </p>
+            </div>
 
             <select
               value={senderId}
@@ -404,7 +430,7 @@ export default function ComposePage() {
                 loadingSenders ||
                 senders.length === 0
               }
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm"
+              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2"
             >
               {loadingSenders ? (
                 <option>
@@ -417,7 +443,7 @@ export default function ComposePage() {
               ) : (
                 <>
                   <option value="">
-                    Select sender
+                    Select a sender
                   </option>
 
                   {senders.map(
@@ -440,19 +466,20 @@ export default function ComposePage() {
           </section>
 
           <section className="rounded-xl border p-6">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-lg font-medium">
                   Recipients
                 </h3>
 
-                <p className="text-sm text-muted-foreground">
-                  Upload a CSV or enter email addresses manually.
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Upload a CSV or enter one email address per line.
                 </p>
               </div>
 
-              <label className="cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">
+              <label className="inline-flex w-fit cursor-pointer items-center rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">
                 Upload CSV
+
                 <input
                   type="file"
                   accept=".csv,text/csv"
@@ -465,9 +492,9 @@ export default function ComposePage() {
             </div>
 
             <textarea
-              value={recipientText}
+              value={recipientsText}
               onChange={(event) =>
-                setRecipientText(
+                setRecipientsText(
                   event.target.value,
                 )
               }
@@ -475,7 +502,7 @@ export default function ComposePage() {
                 "alice@example.com\nbob@example.com\ncharlie@example.com"
               }
               rows={7}
-              className="w-full rounded-lg border bg-background px-3 py-3 text-sm"
+              className="w-full rounded-lg border bg-background px-3 py-3 text-sm outline-none focus:ring-2"
             />
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -483,6 +510,7 @@ export default function ComposePage() {
                 <p className="text-xs text-muted-foreground">
                   Valid
                 </p>
+
                 <p className="mt-1 text-2xl font-semibold">
                   {parsed.valid.length}
                 </p>
@@ -492,6 +520,7 @@ export default function ComposePage() {
                 <p className="text-xs text-muted-foreground">
                   Invalid
                 </p>
+
                 <p className="mt-1 text-2xl font-semibold">
                   {parsed.invalid.length}
                 </p>
@@ -501,6 +530,7 @@ export default function ComposePage() {
                 <p className="text-xs text-muted-foreground">
                   Duplicates
                 </p>
+
                 <p className="mt-1 text-2xl font-semibold">
                   {
                     parsed
@@ -513,20 +543,27 @@ export default function ComposePage() {
           </section>
 
           <section className="rounded-xl border p-6">
-            <h3 className="mb-4 text-lg font-medium">
-              Message
-            </h3>
+            <div className="mb-4">
+              <h3 className="text-lg font-medium">
+                Message
+              </h3>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Write the message that will be sent to every recipient.
+              </p>
+            </div>
 
             <div className="space-y-4">
               <input
+                type="text"
                 value={subject}
                 onChange={(event) =>
                   setSubject(
                     event.target.value,
                   )
                 }
-                placeholder="Subject"
-                className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm"
+                placeholder="Email subject"
+                className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2"
               />
 
               <textarea
@@ -537,16 +574,22 @@ export default function ComposePage() {
                   )
                 }
                 placeholder="Write your email..."
-                rows={10}
-                className="w-full rounded-lg border bg-background px-3 py-3 text-sm"
+                rows={12}
+                className="w-full rounded-lg border bg-background px-3 py-3 text-sm outline-none focus:ring-2"
               />
             </div>
           </section>
 
           <section className="rounded-xl border p-6">
-            <h3 className="mb-4 text-lg font-medium">
-              Delivery
-            </h3>
+            <div className="mb-4">
+              <h3 className="text-lg font-medium">
+                Delivery
+              </h3>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Configure when and how quickly the emails are sent.
+              </p>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-3">
               <div>
@@ -562,13 +605,13 @@ export default function ComposePage() {
                       event.target.value,
                     )
                   }
-                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm"
+                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium">
-                  Delay between emails (ms)
+                  Delay between emails
                 </label>
 
                 <input
@@ -585,8 +628,12 @@ export default function ComposePage() {
                       ),
                     )
                   }
-                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm"
+                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2"
                 />
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Minimum: 2000 ms
+                </p>
               </div>
 
               <div>
@@ -605,13 +652,17 @@ export default function ComposePage() {
                       ),
                     )
                   }
-                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm"
+                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2"
                 />
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Maximum sends allowed per hour.
+                </p>
               </div>
             </div>
           </section>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               {parsed.valid.length} valid recipient
               {parsed.valid.length === 1
@@ -626,7 +677,7 @@ export default function ComposePage() {
                 loadingSenders ||
                 senders.length === 0
               }
-              className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting
                 ? "Scheduling..."
