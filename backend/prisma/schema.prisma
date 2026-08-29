@@ -74,7 +74,7 @@ model EmailJob {
   attempts    Int @default(0)
   maxAttempts Int @default(3)
 
-  delayBetweenEmails Int
+  delayBetweenEmailsMs Int
   hourlyLimit        Int
 
   bullJobId     String? @unique

@@ -95,15 +95,8 @@ const worker = new Worker<EmailJobPayload>(
         emailJobId,
       };
     }
-
-    /*
-     * Atomically reserve:
-     *
-     * - hourly sender quota
-     * - minimum sender spacing
-     */
     const minimumDelayMs = Math.max(
-      emailJob.delayBetweenEmails,
+      emailJob.delayBetweenEmailsMs,
       defaultDelayMs,
     );
 

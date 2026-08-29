@@ -23,11 +23,11 @@ export class EmailRepository {
     });
   }
 
-  async findByBatchId(batchId: string) {
+  async findByBatchId(
+    batchId: string,
+  ) {
     return prisma.emailJob.findMany({
-      where: {
-        batchId,
-      },
+      where: { batchId },
       orderBy: {
         createdAt: "asc",
       },
@@ -41,16 +41,20 @@ export class EmailRepository {
     return prisma.emailJob.updateMany({
       where: {
         id,
-        status: EmailStatus.PENDING,
+        status:
+          EmailStatus.PENDING,
       },
       data: {
-        status: EmailStatus.QUEUED,
+        status:
+          EmailStatus.QUEUED,
         bullJobId,
       },
     });
   }
 
-  async markProcessing(id: string) {
+  async markProcessing(
+    id: string,
+  ) {
     return prisma.emailJob.updateMany({
       where: {
         id,
@@ -62,7 +66,8 @@ export class EmailRepository {
         },
       },
       data: {
-        status: EmailStatus.PROCESSING,
+        status:
+          EmailStatus.PROCESSING,
       },
     });
   }
@@ -73,15 +78,19 @@ export class EmailRepository {
     return prisma.emailJob.updateMany({
       where: {
         id,
-        status: EmailStatus.PROCESSING,
+        status:
+          EmailStatus.PROCESSING,
       },
       data: {
-        status: EmailStatus.QUEUED,
+        status:
+          EmailStatus.QUEUED,
       },
     });
   }
 
-  async incrementAttempts(id: string) {
+  async incrementAttempts(
+    id: string,
+  ) {
     return prisma.emailJob.update({
       where: { id },
       data: {
@@ -100,10 +109,12 @@ export class EmailRepository {
     return prisma.emailJob.updateMany({
       where: {
         id,
-        status: EmailStatus.PROCESSING,
+        status:
+          EmailStatus.PROCESSING,
       },
       data: {
-        status: EmailStatus.SENT,
+        status:
+          EmailStatus.SENT,
         sentAt,
         messageId,
         failureReason: null,
@@ -118,16 +129,20 @@ export class EmailRepository {
     return prisma.emailJob.updateMany({
       where: {
         id,
-        status: EmailStatus.PROCESSING,
+        status:
+          EmailStatus.PROCESSING,
       },
       data: {
-        status: EmailStatus.FAILED,
+        status:
+          EmailStatus.FAILED,
         failureReason,
       },
     });
   }
 
-  async findScheduled(userId: string) {
+  async findScheduled(
+    userId: string,
+  ) {
     return prisma.emailJob.findMany({
       where: {
         userId,
@@ -141,20 +156,25 @@ export class EmailRepository {
       },
       orderBy: [
         {
-          scheduledFor: "asc",
+          scheduledFor:
+            "asc",
         },
         {
-          createdAt: "asc",
+          createdAt:
+            "asc",
         },
       ],
     });
   }
 
-  async findSent(userId: string) {
+  async findSent(
+    userId: string,
+  ) {
     return prisma.emailJob.findMany({
       where: {
         userId,
-        status: EmailStatus.SENT,
+        status:
+          EmailStatus.SENT,
       },
       orderBy: {
         sentAt: "desc",
@@ -175,7 +195,8 @@ export class EmailRepository {
         },
       },
       orderBy: {
-        scheduledFor: "asc",
+        scheduledFor:
+          "asc",
       },
       take: limit,
     });

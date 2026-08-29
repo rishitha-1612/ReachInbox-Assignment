@@ -19,6 +19,8 @@ export class SchedulerService {
     userId: string,
     input: ScheduleEmailsInput,
   ): Promise<ScheduleEmailsResult> {
+    // Verify that the sender belongs to the
+    // authenticated user.
     const sender =
       await senderRepository.findByIdForUser(
         input.senderId,
@@ -27,45 +29,45 @@ export class SchedulerService {
 
     if (!sender) {
       throw new Error(
-        "Sender not found or does not belong to the authenticated user",
+        "Sender not found or does not belong to authenticated user",
       );
     }
 
-    const batchId =
-      randomUUID();
+    // One batch ID groups all emails from this
+    // scheduling request.
+    const batchId = randomUUID();
 
-    const jobs =
-      input.recipients.map(
-        (recipientEmail) => ({
-          userId,
-          senderId:
-            input.senderId,
-          batchId,
-          recipientEmail,
-          subject:
-            input.subject,
-          body: input.body,
-          scheduledFor:
-            input.scheduledFor,
-          delayBetweenEmails:
-            input.delayBetweenEmailsMs,
-          hourlyLimit:
-            input.hourlyLimit,
-          status:
-            "PENDING" as const,
-        }),
-      );
-
-    await emailRepository.createMany(
-      jobs,
+    const jobs = input.recipients.map(
+      (recipientEmail) => ({
+        userId,
+        senderId: input.senderId,
+        batchId,
+        recipientEmail,
+        subject: input.subject,
+        body: input.body,
+        scheduledFor:
+          input.scheduledFor,
+        delayBetweenEmailsMs:
+          input.delayBetweenEmailsMs,
+        hourlyLimit:
+          input.hourlyLimit,
+        status: "PENDING" as const,
+      }),
     );
 
+    // Persist all email jobs first.
+    await emailRepository.createMany(jobs);
+
+    // Retrieve the persisted rows so PostgreSQL-generated
+    // IDs become the BullMQ job IDs.
     const createdJobs =
       await emailRepository.findByBatchId(
         batchId,
       );
 
-    for (const emailJob of createdJobs) {
+    for (
+      const emailJob of createdJobs
+    ) {
       const delay = Math.max(
         emailJob.scheduledFor.getTime() -
           Date.now(),

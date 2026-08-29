@@ -2,6 +2,7 @@ import { OAuth2Client } from "google-auth-library";
 import { jwtVerify, SignJWT } from "jose";
 
 import userRepository from "../repositories/user.repository.js";
+import senderRepository from "../repositories/sender.repository.js";
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
@@ -68,10 +69,6 @@ export async function handleGoogleCallback(
     );
   }
 
-  /*
-   * Verify the Google ID token before trusting
-   * its user claims.
-   */
   const ticket =
     await googleClient.verifyIdToken({
       idToken: tokens.id_token,
@@ -91,6 +88,9 @@ export async function handleGoogleCallback(
     );
   }
 
+  /*
+   * Create or update the authenticated user.
+   */
   const user =
     await userRepository.upsertGoogleUser({
       googleId: payload.sub,
@@ -103,6 +103,83 @@ export async function handleGoogleCallback(
         : {}),
     });
 
+  if (!user) {
+    throw new Error(
+      "Unable to create or retrieve user",
+    );
+  }
+
+  /*
+   * Create a default sender the first time
+   * this Google account logs in.
+   */
+  const existingSender =
+    await senderRepository.findDefaultSender(
+      user.id,
+    );
+
+  if (!existingSender) {
+    const smtpHost =
+      getRequiredEnv("SMTP_HOST");
+
+    const smtpUser =
+      getRequiredEnv("SMTP_USER");
+
+    const smtpPass =
+      getRequiredEnv("SMTP_PASS");
+
+    const smtpPort = Number(
+      process.env.SMTP_PORT ?? 587,
+    );
+
+    if (
+      !Number.isInteger(smtpPort) ||
+      smtpPort <= 0
+    ) {
+      throw new Error(
+        "Invalid SMTP_PORT",
+      );
+    }
+
+    const smtpFrom =
+      getRequiredEnv("SMTP_FROM");
+
+    /*
+     * Supports:
+     * ReachInbox <user@example.com>
+     * or simply:
+     * user@example.com
+     */
+    const emailMatch =
+      smtpFrom.match(
+        /<([^>]+)>/,
+      );
+
+    const senderEmail =
+      emailMatch?.[1]?.trim() ??
+      smtpFrom.trim();
+
+    /*
+     * NOTE:
+     * The repository currently expects a field named
+     * smtpPassEncrypted. Before production submission,
+     * this value should be encrypted using the project's
+     * encryption service instead of storing plaintext.
+     */
+    await senderRepository.createDefaultSender({
+      userId: user.id,
+      email: senderEmail,
+      displayName: "ReachInbox",
+      smtpHost,
+      smtpPort,
+      smtpUser,
+      smtpPassEncrypted: smtpPass,
+    });
+  }
+
+  /*
+   * Create the application session.
+   */
   const sessionToken =
     await new SignJWT({
       userId: user.id,

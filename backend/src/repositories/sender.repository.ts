@@ -1,7 +1,9 @@
 import { prisma } from "../config/prisma.js";
 
 export class SenderRepository {
-  async findDefaultSender(userId: string) {
+  async findDefaultSender(
+    userId: string,
+  ) {
     return prisma.sender.findFirst({
       where: {
         userId,
@@ -22,18 +24,74 @@ export class SenderRepository {
     });
   }
 
-  async create(data: {
-    userId: string;
-    email: string;
-    displayName: string;
-    smtpHost: string;
-    smtpPort: number;
-    smtpUser: string;
-    smtpPassEncrypted: string;
-    isDefault?: boolean;
-  }) {
+  async createDefaultSender(
+    data: {
+      userId: string;
+      email: string;
+      displayName: string;
+      smtpHost: string;
+      smtpPort: number;
+      smtpUser: string;
+      smtpPassEncrypted: string;
+    },
+  ) {
     return prisma.sender.create({
-      data,
+      data: {
+        userId:
+          data.userId,
+        email:
+          data.email,
+        displayName:
+          data.displayName,
+        smtpHost:
+          data.smtpHost,
+        smtpPort:
+          data.smtpPort,
+        smtpUser:
+          data.smtpUser,
+        smtpPassEncrypted:
+          data.smtpPassEncrypted,
+        isDefault: true,
+      },
+    });
+  }
+
+  async create(
+    data: {
+      userId: string;
+      email: string;
+      displayName: string;
+      smtpHost: string;
+      smtpPort: number;
+      smtpUser: string;
+      smtpPassEncrypted: string;
+      isDefault?: boolean;
+    },
+  ) {
+    return prisma.sender.create({
+      data: {
+        userId:
+          data.userId,
+        email:
+          data.email,
+        displayName:
+          data.displayName,
+        smtpHost:
+          data.smtpHost,
+        smtpPort:
+          data.smtpPort,
+        smtpUser:
+          data.smtpUser,
+        smtpPassEncrypted:
+          data.smtpPassEncrypted,
+        ...(data.isDefault !==
+        undefined
+          ? {
+              isDefault:
+                data.isDefault,
+            }
+          : {}),
+      },
     });
   }
 }
