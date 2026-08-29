@@ -1,5 +1,5 @@
 
-# ReachInbox — Email Scheduler
+# ReachInbox - Email Scheduler
 
 A full-stack email scheduling system built with **Next.js, React, TypeScript, Express, PostgreSQL, Redis, and BullMQ**.
 
@@ -1540,15 +1540,3 @@ Implemented functionality includes:
 * Dashboard statistics
 * Worker restart recovery
 * Frontend/backend integration
-
----
-
-# Author
-
-**Rishitha Rasineni**
-
-Computer Science & Engineering
-
-Bengaluru, India
-
-```
