@@ -21,11 +21,6 @@ export async function authMiddleware(
     const token =
       req.cookies?.[SESSION_COOKIE];
 
-    console.log(
-      "Auth cookie present:",
-      Boolean(token),
-    );
-
     if (!token) {
       return res.status(401).json({
         success: false,

@@ -5,8 +5,9 @@ export const env = cleanEnv(process.env, {
 
   DATABASE_URL: str(),
 
-  REDIS_HOST: str(),
-  REDIS_PORT: num(),
+  REDIS_URL: str({ default: "" }),
+  REDIS_HOST: str({ default: "127.0.0.1" }),
+  REDIS_PORT: num({ default: 6379 }),
 
   JWT_SECRET: str(),
 

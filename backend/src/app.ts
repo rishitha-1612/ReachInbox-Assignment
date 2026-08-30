@@ -8,6 +8,10 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import emailRoutes from "./routes/email.routes.js";
 import senderRoutes from "./routes/sender.routes.js";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./middleware/error.middleware.js";
 
 const app = express();
 
@@ -76,5 +80,8 @@ app.use(
   "/api/v1/dashboard",
   dashboardRoutes,
 );
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;

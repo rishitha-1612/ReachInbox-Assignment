@@ -13,30 +13,37 @@ export default function SentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadSentEmails() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await getSentEmails();
-
-      setJobs(response.data);
-    } catch (error) {
-      console.error(
-        "Failed to load sent emails:",
-        error,
-      );
-
-      setError(
-        "Unable to load sent emails. Please make sure you are logged in.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    void loadSentEmails();
+    let active = true;
+
+    void (async () => {
+      try {
+        const response = await getSentEmails();
+
+        if (active) {
+          setJobs(response.data);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load sent emails:",
+          error,
+        );
+
+        if (active) {
+          setError(
+            "Unable to load sent emails. Please make sure you are logged in.",
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

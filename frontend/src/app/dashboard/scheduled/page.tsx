@@ -17,31 +17,37 @@ export default function ScheduledPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadScheduledEmails() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response =
-        await getScheduledEmails();
-
-      setJobs(response.data);
-    } catch (error) {
-      console.error(
-        "Failed to load scheduled emails:",
-        error,
-      );
-
-      setError(
-        "Unable to load scheduled emails. Please make sure you are logged in.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    void loadScheduledEmails();
+    let active = true;
+
+    void (async () => {
+      try {
+        const response = await getScheduledEmails();
+
+        if (active) {
+          setJobs(response.data);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load scheduled emails:",
+          error,
+        );
+
+        if (active) {
+          setError(
+            "Unable to load scheduled emails. Please make sure you are logged in.",
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (

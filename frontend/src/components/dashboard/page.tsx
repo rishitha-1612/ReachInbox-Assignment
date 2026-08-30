@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight, MailPlus } from "lucide-react";
 
 import { DashboardShell } from "@/components/layout/DashboardShell";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 const stats = [

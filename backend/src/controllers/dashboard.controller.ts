@@ -4,13 +4,6 @@ import type {
 } from "express";
 
 import { prisma } from "../config/prisma.js";
-import {
-  verifySession,
-} from "../services/auth.service.js";
-
-const SESSION_COOKIE =
-  process.env.AUTH_COOKIE_NAME ??
-  "reachinbox_session";
 
 export class DashboardController {
   async stats(
@@ -18,29 +11,14 @@ export class DashboardController {
     res: Response,
   ) {
     try {
-      const token =
-        req.cookies?.[SESSION_COOKIE];
-
-      if (!token) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message:
-            "Authentication required",
+          message: "Authentication required",
         });
       }
 
-      const user =
-        await verifySession(token);
-
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message:
-            "User not found",
-        });
-      }
-
-      const userId = user.id;
+      const userId = req.user.id;
 
       const [
         total,
@@ -97,10 +75,9 @@ export class DashboardController {
         error,
       );
 
-      return res.status(401).json({
+      return res.status(500).json({
         success: false,
-        message:
-          "Unable to authenticate dashboard request",
+        message: "Unable to retrieve dashboard statistics",
       });
     }
   }

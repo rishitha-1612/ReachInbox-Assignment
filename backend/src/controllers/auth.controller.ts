@@ -21,6 +21,18 @@ const isProduction =
   process.env.NODE_ENV ===
   "production";
 
+const sessionSameSite =
+  process.env.COOKIE_SAME_SITE === "none"
+    ? "none"
+    : "lax";
+
+const sessionCookieOptions = {
+  httpOnly: true,
+  sameSite: sessionSameSite,
+  secure: isProduction || sessionSameSite === "none",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+} as const;
+
 export class AuthController {
   login(
     _req: Request,
@@ -92,17 +104,16 @@ export class AuthController {
     res.cookie(
       SESSION_COOKIE,
       sessionToken,
-      {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: isProduction,
-        maxAge:
-          7 * 24 * 60 * 60 * 1000,
-      },
+      sessionCookieOptions,
     );
 
     res.clearCookie(
       STATE_COOKIE,
+      {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProduction,
+      },
     );
 
     return res.redirect(
@@ -116,6 +127,11 @@ export class AuthController {
   ) {
     res.clearCookie(
       SESSION_COOKIE,
+      {
+        httpOnly: true,
+        sameSite: sessionSameSite,
+        secure: isProduction || sessionSameSite === "none",
+      },
     );
 
     return res.status(200).json({
