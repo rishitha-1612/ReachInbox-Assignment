@@ -1,8 +1,14 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import {
+  getCurrentUser,
+  logout,
+  type CurrentUser,
+} from "@/services/auth.service";
 
 interface DashboardShellProps {
   title: string;
@@ -14,6 +20,57 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSession() {
+      try {
+        const currentUser = await getCurrentUser();
+
+        if (active) {
+          setUser(currentUser);
+        }
+      } catch {
+        if (active) {
+          router.replace("/");
+        }
+      } finally {
+        if (active) {
+          setCheckingSession(false);
+        }
+      }
+    }
+
+    void loadSession();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      router.replace("/");
+    }
+  }
+
+  if (checkingSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background p-6 text-sm text-muted-foreground">
+        Loading your workspace...
+      </main>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -37,6 +94,8 @@ export function DashboardShell({
         <Header
           title={title}
           onMenuClick={() => setMobileOpen(true)}
+          user={user}
+          onLogout={() => void handleLogout()}
         />
 
         <main className="flex-1 p-4 md:p-6">
