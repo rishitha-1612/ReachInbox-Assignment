@@ -52,6 +52,13 @@ export class SmtpService {
   async verify(
     config?: SmtpConfig,
   ): Promise<void> {
+    if (process.env.SMTP_MOCK_MODE === "true") {
+      console.warn(
+        "SMTP mock mode is enabled; no real email will be delivered.",
+      );
+      return;
+    }
+
     if (!config) {
       const host =
         process.env.SMTP_HOST;
@@ -99,6 +106,16 @@ export class SmtpService {
     config: SmtpConfig,
     input: SendEmailInput,
   ): Promise<SentMessageInfo> {
+    if (process.env.SMTP_MOCK_MODE === "true") {
+      console.warn(
+        `Mock-delivered email to ${input.to} (${input.messageId}).`,
+      );
+
+      return {
+        messageId: input.messageId,
+      } as SentMessageInfo;
+    }
+
     const transporter =
       this.createTransport(config);
 
