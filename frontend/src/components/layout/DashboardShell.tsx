@@ -28,7 +28,7 @@ export function DashboardShell({
           />
 
           <div className="relative h-full w-64 bg-background shadow-xl">
-            <Sidebar />
+            <Sidebar mobile />
           </div>
         </div>
       )}

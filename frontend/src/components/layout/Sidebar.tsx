@@ -4,12 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Clock3,
+  LayoutDashboard,
   MailPlus,
   Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
   {
     label: "Compose",
     href: "/dashboard/compose",
@@ -27,11 +33,22 @@ const navigation = [
   },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  mobile?: boolean;
+}
+
+export function Sidebar({
+  mobile = false,
+}: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r bg-background md:flex md:flex-col">
+    <aside
+      className={cn(
+        "w-64 shrink-0 border-r bg-background flex flex-col",
+        mobile ? "h-full" : "hidden md:flex",
+      )}
+    >
       <div className="flex h-16 items-center border-b px-5">
         <Link
           href="/dashboard"
