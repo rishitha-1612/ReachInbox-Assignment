@@ -22,6 +22,10 @@ export interface SmtpConfig {
   encryptedPassword: string;
 }
 
+const smtpTimeoutMs = Number(
+  process.env.SMTP_TIMEOUT_MS ?? 15_000,
+);
+
 export class SmtpService {
   private createTransport(
     config: SmtpConfig,
@@ -35,6 +39,9 @@ export class SmtpService {
       host: config.host,
       port: config.port,
       secure: config.port === 465,
+      connectionTimeout: smtpTimeoutMs,
+      greetingTimeout: smtpTimeoutMs,
+      socketTimeout: smtpTimeoutMs,
       auth: {
         user: config.user,
         pass: password,
@@ -70,6 +77,9 @@ export class SmtpService {
           host,
           port,
           secure: port === 465,
+          connectionTimeout: smtpTimeoutMs,
+          greetingTimeout: smtpTimeoutMs,
+          socketTimeout: smtpTimeoutMs,
           auth: {
             user,
             pass,
